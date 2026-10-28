@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PDFツール｜分割・結合・並び替え</title>
+<style>
+:root{--bg:#f6f6f3;--fg:#1c1c1a;--mu:#6a6a64;--card:#fff;--bd:#d9d9d2;--ac:#2563eb;--ac2:#dbe7ff;--ok:#15803d;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17171a;--fg:#ececea;--mu:#9a9a94;--card:#222226;--bd:#3a3a40;--ac:#6b9bff;--ac2:#25345a;--ok:#4ade80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17171a;--fg:#ececea;--mu:#9a9a94;--card:#222226;--bd:#3a3a40;--ac:#6b9bff;--ac2:#25345a;--ok:#4ade80;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 -apple-system,"Hiragino Sans","Yu Gothic",Meiryo,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:20px;margin:0 0 4px}.sub{color:var(--mu);margin:0 0 16px;font-size:13px}
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--bd)}
+.tabs button{flex:1;padding:10px;border:0;background:none;color:var(--mu);font:inherit;font-weight:600;cursor:pointer;border-bottom:3px solid transparent}
+.tabs button.on{color:var(--ac);border-color:var(--ac)}
+.panel{display:none}.panel.on{display:block}
+.dz{display:block;border:2px dashed var(--bd);border-radius:12px;padding:24px;text-align:center;color:var(--mu);cursor:pointer;background:var(--card)}
+.dz.over{border-color:var(--ac);background:var(--ac2)}.dz input{display:none}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0}
+.bar .info{color:var(--mu);font-size:13px;flex:1;min-width:160px}
+button.b{padding:8px 14px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--fg);font:inherit;cursor:pointer}
+button.p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
+button:disabled{opacity:.4;cursor:not-allowed}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.pg{position:relative;background:var(--card);border:2px solid var(--bd);border-radius:8px;padding:8px 8px 4px;text-align:center;cursor:pointer;user-select:none}
+.pg canvas{max-width:100%;height:auto;min-height:90px;background:#fff;display:block;margin:0 auto;border:1px solid var(--bd)}
+.pg .lab{font-size:12px;color:var(--mu);margin-top:4px;word-break:break-all}
+.pg.sel{border-color:var(--ac);background:var(--ac2)}
+.pg.drag{opacity:.4}.pg.ov{border-color:var(--ok)}
+.badge{position:absolute;top:4px;left:4px;min-width:24px;height:24px;border-radius:12px;background:var(--ac);color:#fff;font-size:13px;font-weight:700;display:none;align-items:center;justify-content:center;padding:0 6px}
+.pg.sel .badge{display:flex}
+.mv{display:flex;justify-content:center;gap:6px;margin-top:2px}
+.mv button{border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:6px;cursor:pointer;padding:0 8px}
+.x{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:11px;border:0;background:#0007;color:#fff;cursor:pointer;line-height:1}
+#msg{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:13px;display:none;z-index:5}
+</style>
+</head>
+<body>
+<main>
+<h1>PDFツール</h1>
+<p class="sub">分割・結合・並び替え。ファイルはブラウザ内で処理され、外部に送信されません。</p>
+<div class="tabs">
+<button class="on" data-t="split">分割</button><button data-t="merge">結合</button><button data-t="sort">並び替え</button>
+</div>
+
+<section class="panel on" id="split">
+<label class="dz" id="sdz">PDFをここにドロップ、またはクリックして選択<input type="file" accept="application/pdf" id="sf"></label>
+<div class="bar"><span class="info" id="sinfo">分割したいページをクリックして選択してください</span>
+<button class="b" id="sall" disabled>全選択</button><button class="b" id="snone" disabled>選択解除</button>
+<button class="b p" id="sdl" disabled>選択ページをダウンロード</button></div>
+<div class="grid" id="sgrid"></div>
+</section>
+
+<section class="panel" id="merge">
+<label class="dz" id="mdz">PDFを複数ドロップ、またはクリックして選択（追加も可能）<input type="file" accept="application/pdf" id="mf" multiple></label>
+<div class="bar"><span class="info" id="minfo">結合したいファイルを、結合したい順にクリックしてください</span>
+<button class="b" id="mall" disabled>全て選択</button><button class="b" id="mnone" disabled>選択解除</button>
+<button class="b p" id="mdl" disabled>結合してダウンロード</button></div>
+<div class="grid" id="mgrid"></div>
+</section>
+
+<section class="panel" id="sort">
+<label class="dz" id="odz">PDFをここにドロップ、またはクリックして選択<input type="file" accept="application/pdf" id="of"></label>
+<div class="bar"><span class="info" id="oinfo">ページをドラッグ＆ドロップで並び替えできます（◀ ▶ ボタンでも移動可）</span>
+<button class="b" id="orst" disabled>元の順に戻す</button>
+<button class="b p" id="odl" disabled>並び替えてダウンロード</button></div>
+<div class="grid" id="ogrid"></div>
+</section>
+</main>
+<div id="msg"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+let mt;function toast(t,keep){const m=$('#msg');m.textContent=t;m.style.display='block';clearTimeout(mt);if(!keep)mt=setTimeout(()=>m.style.display='none',3000)}
+function hide(){$('#msg').style.display='none'}
+
+// tabs
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id===b.dataset.t));
+});
+
+// thumbnails (serial queue)
+let q=Promise.resolve();
+function thumb(doc,n,cv){q=q.then(async()=>{try{
+  const p=await doc.getPage(n),v0=p.getViewport({scale:1}),v=p.getViewport({scale:260/v0.width});
+  cv.width=v.width;cv.height=v.height;
+  await p.render({canvasContext:cv.getContext('2d'),viewport:v}).promise;
+}catch(e){}})}
+
+async function readPdf(f){
+  const bytes=new Uint8Array(await f.arrayBuffer());
+  const doc=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+  return {name:f.name,bytes,doc,n:doc.numPages};
+}
+const base=n=>n.replace(/\.pdf$/i,'');
+
+// download
+async function save(bytes,name){
+  let d=null;try{d=window.claude?await claude.use('downloads'):null}catch(e){}
+  if(d){
+    try{await d.save({filename:name,data:bytes});toast('保存しました');}
+    catch(e){if(e&&e.code!=='declined')toast('保存できませんでした：'+(e.message||e.code))}
+  }else{
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    a.download=name;document.body.appendChild(a);a.click();a.remove();
+  }
+}
+async function build(srcBytes,idxs){ // srcBytes: [{bytes,i}] 
+  const out=await PDFLib.PDFDocument.create();
+  const cache=new Map();
+  for(const {f,i} of idxs){
+    if(!cache.has(f))cache.set(f,await PDFLib.PDFDocument.load(f.bytes,{ignoreEncryption:true}));
+    const [pg]=await out.copyPages(cache.get(f),[i]);out.addPage(pg);
+  }
+  return out.save();
+}
+
+// drop zones
+function dz(id,inputId,multi,cb){
+  const z=$(id),i=$(inputId);
+  const go=fs=>{fs=[...fs].filter(f=>/pdf$/i.test(f.type)||/\.pdf$/i.test(f.name));if(!fs.length)return toast('PDFファイルを選択してください');cb(multi?fs:fs[0])};
+  i.onchange=()=>{go(i.files);i.value=''};
+  z.ondragover=e=>{e.preventDefault();z.classList.add('over')};
+  z.ondragleave=()=>z.classList.remove('over');
+  z.ondrop=e=>{e.preventDefault();z.classList.remove('over');go(e.dataTransfer.files)};
+}
+async function guard(fn){try{toast('読み込み中…',true);await fn();hide()}catch(e){toast('処理に失敗しました：'+(e.message||e))}}
+
+/* ---------- 分割 ---------- */
+const S={f:null,sel:new Set(),cards:[]};
+function sUpd(){
+  $('#sinfo').textContent=S.f?`${S.f.name}（全${S.f.n}ページ）／ ${S.sel.size}ページ選択中`:'分割したいページをクリックして選択してください';
+  $('#sdl').disabled=!S.sel.size;$('#sall').disabled=$('#snone').disabled=!S.f;
+}
+dz('#sdz','#sf',false,f=>guard(async()=>{
+  S.f=await readPdf(f);S.sel.clear();S.cards=[];const g=$('#sgrid');g.innerHTML='';
+  for(let i=0;i<S.f.n;i++){
+    const c=el('div','pg'),cv=el('canvas');c.append(el('span','badge',i+1),cv,el('div','lab',`${i+1} ページ`));
+    c.onclick=()=>{S.sel.has(i)?S.sel.delete(i):S.sel.add(i);c.classList.toggle('sel',S.sel.has(i));sUpd()};
+    g.append(c);S.cards.push(c);thumb(S.f.doc,i+1,cv);
+  }
+  sUpd();
+}));
+$('#sall').onclick=()=>{S.cards.forEach((c,i)=>{S.sel.add(i);c.classList.add('sel')});sUpd()};
+$('#snone').onclick=()=>{S.sel.clear();S.cards.forEach(c=>c.classList.remove('sel'));sUpd()};
+$('#sdl').onclick=()=>guard(async()=>{
+  const idx=[...S.sel].sort((a,b)=>a-b).map(i=>({f:S.f,i}));
+  await save(await build(null,idx),base(S.f.name)+'_分割.pdf');
+});
+
+/* ---------- 結合 ---------- */
+const M={files:[],sel:[],uid:0};
+function mUpd(){
+  M.files.forEach(f=>{const k=M.sel.indexOf(f.id);f.card.classList.toggle('sel',k>=0);f.card.querySelector('.badge').textContent=k+1});
+  const names=M.sel.map(id=>M.files.find(f=>f.id===id).name);
+  $('#minfo').textContent=M.files.length?(names.length?`結合順：${names.join(' → ')}`:'結合したい順にファイルをクリックしてください'):'結合したいファイルを、結合したい順にクリックしてください';
+  $('#mdl').disabled=M.sel.length<2;$('#mall').disabled=$('#mnone').disabled=!M.files.length;
+}
+dz('#mdz','#mf',true,fs=>guard(async()=>{
+  for(const file of fs){
+    const f=await readPdf(file);f.id=++M.uid;
+    const c=el('div','pg'),cv=el('canvas'),x=el('button','x','×');x.title='一覧から削除';
+    c.append(el('span','badge'),x,cv,el('div','lab',`${f.name}（${f.n}ページ）`));
+    c.onclick=()=>{const k=M.sel.indexOf(f.id);k>=0?M.sel.splice(k,1):M.sel.push(f.id);mUpd()};
+    x.onclick=e=>{e.stopPropagation();M.files=M.files.filter(y=>y!==f);M.sel=M.sel.filter(id=>id!==f.id);c.remove();mUpd()};
+    f.card=c;M.files.push(f);$('#mgrid').append(c);thumb(f.doc,1,cv);
+  }
+  mUpd();
+}));
+$('#mall').onclick=()=>{M.sel=M.files.map(f=>f.id);mUpd()};
+$('#mnone').onclick=()=>{M.sel=[];mUpd()};
+$('#mdl').onclick=()=>guard(async()=>{
+  const idx=[];
+  for(const id of M.sel){const f=M.files.find(f=>f.id===id);for(let i=0;i<f.n;i++)idx.push({f,i})}
+  await save(await build(null,idx),'結合.pdf');
+});
+
+/* ---------- 並び替え ---------- */
+const O={f:null,order:[],cards:[],drag:null};
+function oRender(){
+  const g=$('#ogrid');
+  O.order.forEach((id,pos)=>{const c=O.cards[id];c.querySelector('.badge').textContent=pos+1;c.querySelector('.lab').textContent=`${pos+1} 番目（元 ${id+1}）`;g.append(c)});
+  const changed=O.order.some((id,p)=>id!==p);
+  $('#odl').disabled=!O.f;$('#orst').disabled=!changed;
+  $('#oinfo').textContent=O.f?`${O.f.name}（全${O.f.n}ページ）／ドラッグ＆ドロップまたは ◀ ▶ で並び替え`:'ページをドラッグ＆ドロップで並び替えできます（◀ ▶ ボタンでも移動可）';
+}
+function oMove(id,to){
+  const from=O.order.indexOf(id);to=Math.max(0,Math.min(O.order.length-1,to));
+  if(from===to)return;O.order.splice(from,1);O.order.splice(to,0,id);oRender();
+}
+dz('#odz','#of',false,f=>guard(async()=>{
+  O.f=await readPdf(f);O.order=[];O.cards=[];const g=$('#ogrid');g.innerHTML='';
+  for(let i=0;i<O.f.n;i++){
+    const c=el('div','pg sel'),cv=el('canvas'),mv=el('div','mv'),l=el('button',null,'◀'),r=el('button',null,'▶');
+    mv.append(l,r);c.append(el('span','badge'),cv,el('div','lab'),mv);c.draggable=true;
+    l.onclick=()=>oMove(i,O.order.indexOf(i)-1);r.onclick=()=>oMove(i,O.order.indexOf(i)+1);
+    c.ondragstart=e=>{O.drag=i;c.classList.add('drag');e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(i))};
+    c.ondragend=()=>{c.classList.remove('drag');O.cards.forEach(x=>x.classList.remove('ov'))};
+    c.ondragover=e=>{e.preventDefault();c.classList.add('ov')};
+    c.ondragleave=()=>c.classList.remove('ov');
+    c.ondrop=e=>{e.preventDefault();c.classList.remove('ov');if(O.drag!=null&&O.drag!==i)oMove(O.drag,O.order.indexOf(i));O.drag=null};
+    O.cards.push(c);O.order.push(i);thumb(O.f.doc,i+1,cv);
+  }
+  oRender();
+}));
+$('#orst').onclick=()=>{O.order=O.order.map((_,i)=>i);oRender()};
+$('#odl').onclick=()=>guard(async()=>{
+  await save(await build(null,O.order.map(i=>({f:O.f,i}))),base(O.f.name)+'_並び替え.pdf');
+});
+</script>
+</body>
+</html>
